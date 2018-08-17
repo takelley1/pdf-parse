@@ -1,88 +1,28 @@
-#Extracts images from a PDF file 
-#the images are converted to .jpg
-function Extract-PDFImages($pdfPath,$imgFolder,$imgPrefix){
-	if (!(Test-Path $imgFolder)){
-		New-Item $imgFolder -ItemType Dir | Out-Null
-	}
-	$root="$imgFolder\$imgPrefix"
-	& 'C:\misc\PDFTools\bin32\pdfimages.exe' "-j" "$pdfPath" "$root" 
-	
-}
+$workingdir = c:\users\waldo\desktop\ad-auto-account-creation\2875 #define shortcut for main directory
 
-Extract-PDFImages "c:\My.pdf" "c:\users\Administrator\Desktop\test" "img"
+New-Item -Path $workingdir\working2875 -ItemType directory #create temp directory for 2875s currently being parsed
 
+Get-Childitem -Path $env:USERPROFILE\Downloads -Filter *2875*.pdf | Sort-Object LastAccessTime -Descending | Select-Object -First 1 |
+Move-Item -Destination $workingdir\working2875 #move most recently downloaded 2875 to temp directory for parsing
 
+$item = Get-Childitem -Path $workingdir\working2875 
+$oldname = $item.Name #store 2875's original name in variable since it must be renamed for pdftotext utility
 
+Get-Childitem -Path $workingdir\working2875 | Rename-Item -Newname {"DD2875-input" + $_.extension} #rename 2875 so pdftotext can read it
 
+Start-Process -FilePath $workingdir\pdftopngbatch.bat -Wait #run pdftotext
 
+Get-Childitem -Path $workingdir\working2875 -Filter *input* | Rename-Item -Newname $oldname #rename 2875 back to its original name
 
-Import-Module tesseractlib.psm1
-$ocr = Get-TessTextFromImage -Path "C:\Temp\test.jpg"
-$ocr.Confidence
-$ocr.Text
+#parse here
 
+Move-Item -Path $workingdir\working2875\*.pdf -Destination $workingdir\old2875s #move 2875 to archiving location
+
+Remove-Item -Path $workingdir\working2875 #delete temp directory
 
 
 
 
 
-#
-# Title:     tesseractlib.psm1
-# Author:    Jourdan Templeton
-# Email:     hello@jourdant.me
-# Modified:  04/01/2015 08:30PM NZDT
-#
 
-Add-Type -AssemblyName "System.Drawing"
-Add-Type -Path "$PSscriptroot\Lib\Tesseract.dll"
-$tesseract = New-Object Tesseract.TesseractEngine((Get-Item "$psscriptroot\Lib\tessdata").FullName, "eng", [Tesseract.EngineMode]::Default, $null)
 
-<#
-.SYNOPSIS
-
-This cmdlet loads either a file path or image and returns the text contained with the confidence.
-.DESCRIPTION
-
-This cmdlet loads either a file path or image and returns the text contained with the confidence.
-You can pipe in either System.Drawing.Image file or a child-item object.
-.PARAMETER Image
-
-The image file already loaded into memory.
-.PARAMETER FullName
-
-The path to the image to be processed.
-.EXAMPLE
-
-$image = New-Object System.Drawing.Bitmap("c:\test.jpg")
-Get-TessTextFromImage -Image $image
-.EXAMPLE
-
-New-Object System.Drawing.Bitmap("C:\test.jpg") | Get-TessTextFromImage
-.EXAMPLE
-
-$image = New-Object System.Drawing.Bitmap("c:\test.jpg")
-Get-TessTextFromImage -Image $image
-#>
-Function Get-TessTextFromImage {
-    Param(
-    [Parameter(Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="ImageObject")][System.Drawing.Image]$Image,
-    [Parameter(Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="FilePath")]    [Alias("FullName")][String]$Path
-    )
-	Process {
-		#load image if path is a param
-		If ($PsCmdlet.ParameterSetName -eq "FilePath") { $Image = New-Object System.Drawing.Bitmap((Get-Item $path).Fullname) } 
-
-		#perform OCR on image
-		$pix = [Tesseract.PixConverter]::ToPix($image)
-		$page = $tesseract.Process($pix)
-	
-		#build return object
-		$ret = New-Object PSObject -Property @{"Text"= $page.GetText();
-										   "Confidence"= $page.GetMeanConfidence()}
-
-		#clean up references
-		$page.Dispose()
-		If ($PsCmdlet.ParameterSetName -eq "FilePath") { $image.Dispose() } 
-		return $ret
-	}
-}
