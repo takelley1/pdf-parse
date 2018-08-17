@@ -1,2 +1,2 @@
-# PS-GitHub
-PowerShell scripts database.
+# PS-Parse-PDF-GitHub
+PowerShell script for parsing PDFs converted into text documents and creating an automatically filling form. Requires pdftotext.exe utility provided by xpdftools.
